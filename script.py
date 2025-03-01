@@ -1,4 +1,16 @@
+import sys
+from functools import partial
 from termcolor import colored
+
+MENU = {
+    1: "Registrar usuario",
+    2: "Listar usuarios",
+    3: "Iniciar sesión",
+    4: "Salir",
+}
+
+
+DATA = dict()  # Keys: users; Values: passwords
 
 
 def colored_print(text: str, color: str) -> None:
@@ -16,56 +28,11 @@ def colored_print(text: str, color: str) -> None:
     print(ctext)
 
 
-def cprint_success(text):
-    """
-        Prints text in green color. Wrapper for colored_print function.
-
-        Args:
-        - text (str): Text to print in console.
-
-        Returns:
-        - None
-    """
-    colored_print(text, "green")
-
-
-def cprint_warning(text):
-    """
-        Prints text in yellow color. Wrapper for colored_print function.
-
-        Args:
-        - text (str): Text to print in console.
-
-        Returns:
-        - None
-    """
-    colored_print(text, "yellow")
-
-
-def cprint_failure(text):
-    """
-        Prints text in red color. Wrapper for colored_print function.
-
-        Args:
-        - text (str): Text to print in console.
-
-        Returns:
-        - None
-    """
-    colored_print(text, "red")
-
-
-def cprint_info(text):
-    """
-        Prints text in blue color. Wrapper for colored_print function.
-
-        Args:
-        - text (str): Text to print in console.
-
-        Returns:
-        - None
-    """
-    colored_print(text, "blue")
+# colored_print function wrappers
+cprint_success = partial(colored_print, color="green")
+cprint_warning = partial(colored_print, color="yellow")
+cprint_failure = partial(colored_print, color="red")
+cprint_info = partial(colored_print, color="blue")
 
 
 def register(DB: dict) -> None:
@@ -84,16 +51,18 @@ def register(DB: dict) -> None:
             cprint_failure("El nombre de usuario no puede estar vacío.")
             return
 
+        if user_name in DB:
+            cprint_warning(f"El usuario {user_name} ya está registrado.")
+            return
+
         user_pass = input("Ingrese una contraseña:\n").strip()
         if not user_pass:
             cprint_failure("La contraseña no puede estar vacía.")
             return
 
-        if user_name not in DB:
-            DB[user_name] = user_pass
-            cprint_success(f"Usuario {user_name} registrado con éxito.")
-        else:
-            cprint_warning(f"El usuario {user_name} ya está registrado.")
+        DB[user_name] = user_pass
+        cprint_success(f"Usuario {user_name} registrado con éxito.")
+
     except KeyboardInterrupt:
         cprint_failure("Proceso de registro interrumpido por el usuario.")
     except Exception as e:
@@ -121,9 +90,9 @@ def print_data(DB: dict) -> None:
         cprint_failure(f"Ocurrión un error inesperado: {e}")
 
 
-def login(DB: dict):
+def login(DB: dict) -> None:
     """
-        Allows a user to login.
+        Allows an user to login.
 
     Args:
     - DB (dict): Dictionary of users.
@@ -133,12 +102,110 @@ def login(DB: dict):
     """
     try:
         user_name = input("Ingrese el nombre de usuario:\n").strip()
-        user_pass = input("Ingrese la contraseña de usuario:\n").strip()
+        if not user_name:
+            cprint_failure("El nombre de usuario no puede estar vacío.")
+            return
+
+        if user_name not in DB:
+            cprint_warning(f"El usuario {user_name} no está registrado.")
+            return
+
+        user_pass = input("Ingrese la contraseña de usuario:\n")
+        if DB[user_name] != user_pass:
+            cprint_failure("Contraseña incorrecta.")
+            return
+
+        cprint_success("Inicio de sesión exitoso.")
+    except KeyboardInterrupt:
+        cprint_failure("Proceso de login interrumpido por el usuario.")
     except Exception as e:
         cprint_failure(f"Ocurrión un error inesperado: {e}")
 
 
-data = dict()  # Keys: user_name; Values: user_pass
+def menu(menu: dict) -> None:
+    """
+        Prints a menu from a dict.
 
-register("")
-print_data(data)
+        Args:
+        - menu (dict): Menu dict. Keys are the options and values are the descriptions.
+
+        Returns:
+        - None
+    """
+    try:
+        if not menu:
+            cprint_failure("Menú vacío.")
+            return
+
+        cprint_info("¿Qué desea hacer?")
+        for option, description in menu.items():
+            cprint_info(f"Opción {option} -> {description}")
+    except Exception as e:
+        cprint_failure(f"Ocurrión un error inesperado: {e}")
+
+
+def get_menu_option(menu: dict) -> int:
+    """
+        Gets a menu option from the user.
+
+        Args:
+        - menu (dict): Menu dict.
+
+        Returns:
+        - option (int)
+        - None if it fails.
+    """
+    try:
+        option = int(input("Seleccione una opción: "))
+        if option < 1 or option > len(menu):
+            cprint_failure(
+                "Opción inválida. Seleccione una de las opciones disponibles.")
+            return
+    except ValueError:
+        cprint_failure("Opción inválida. Debe ingresar un número.")
+    except KeyboardInterrupt:
+        cprint_failure(
+            "Seleccione la opción correspondiente para finalizar el programa.")
+    except Exception as e:
+        cprint_failure(f"Ocurrión un error inesperado: {e}")
+    else:
+        return option
+
+
+def main() -> None:
+    """
+        Main program to register, show and login users.
+
+        Args:
+        - None
+
+        Returns:
+        - None
+    """
+    try:
+        while True:
+            menu(MENU)
+            option = get_menu_option(MENU)
+            if option == 1:
+                register(DATA)
+            elif option == 2:
+                print_data(DATA)
+            elif option == 3:
+                login(DATA)
+            elif option == 4:
+                break
+    except KeyboardInterrupt:
+        cprint_failure("Proceso principal interrumpido por el usuario.")
+    except Exception as e:
+        cprint_failure(f"Ocurrión un error inesperado: {e}")
+    else:
+        cprint_success("Proceso principal terminado con éxito.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        cprint_failure("Uso incorrecto.")
+        cprint_info(
+            "Este programa no acepta argumentos de línea de comandos (flags / opciones).")
+        exit()
+    main()
